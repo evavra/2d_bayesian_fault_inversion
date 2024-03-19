@@ -8,11 +8,10 @@ import subprocess
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-from mpl_toolkits.axes_grid1 import make_axes_locatable
 from scipy.optimize import least_squares
+from mpl_toolkits.axes_grid1 import make_axes_locatable
 from scipy.interpolate import interp1d
 from multiprocessing import Pool
-from matplotlib import colors
 from sys import platform
 from grid_utilities import read_grd
 from map_utilities import proj_ll2utm, add_utm_coords, add_ll_coords
@@ -35,7 +34,7 @@ std_max  = 10        # Cutoff for bin standard devations (above are discarded)
 n_patch     = 20
 patch_edges = np.linspace(0, 1, n_patch + 1)
 
-# Configure matplotlib for headless use if run on Linux
+# Configure matplotlib for headless use if running on Linux
 if platform != 'darwin':
     matplotlib.use('Agg')
 
@@ -48,92 +47,56 @@ def main():
         python profile_inversion.py summary out_dir - remake summary plots for specified run
     """
 
-    # -------------------- Parameters --------------------
-    # Machine-specific parameters
-    if platform == 'darwin':
-        # Mac
-        file       = '../../Data/InSAR/S1/horiz_creep_20.grd' 
-        fault_file = '../../Data/SSAF_trace.dat'
-        n_process  = 12
+    # -------------------- Define parameters --------------------
+    # File paths
+    file       = 'test_data_SSAF.grd'  # Path to NetCDF data file
+    fault_file = 'test_fault_SSAF.txt' # Path to fault trace
+    top_dir    = 'test'                # Path to output directory
 
-    else:
-        # Linux 
-        file       = 'horiz_creep_20.grd' 
-        fault_file = 'SSAF_trace.dat'
-        n_process  = 24
+    # Plotting 
+    vlim = 5          # Min./max. value for velocity profile plots
+    cmap = 'coolwarm' # Colormap for velocity profile plots
 
-    # Parameters
-    bounds        = [-116.11, -115.76,  # Longitude limits
-                       33.38,   33.68]  # Latitude limits
-    swath_inc     = 1                   # approx. sampled fault segment length for swath selection (km)
-    param_inc     = 2                   # approx. sampled fault segment length for parameter estimation (km)
-    l             = 10000               # fault perpendicular length (m)
-    w             = 500                 # fault parallel width (m) 
+    # Data 
+    bounds        = [-116.11, -115.76,  # Longitude limits for fault
+                       33.38,   33.68]  # Latitude limits for fault
+    swath_inc     = 1                   # Approx. sampled fault segment length for swath selection (km)
+    param_inc     = 10                  # Approx. sampled fault segment length for parameter estimation (km)
+    l             = 10000               # Fault perpendicular length (m)
+    w             = 500                 # Fault parallel width (m) 
     l_bin         = 30                  # Number of fault-perpendicular averaging bins
-    x_min         = -l                  # min. x-distance to include (m)
-    x_max         = l                   # max. x-distance to include (m)
+    x_min         = -l                  # Min. x-distance to include (m)
+    x_max         = l                   # Max. x-distance to include (m)
     norm_EW       = False               # Equally weight both east and west sides of fault
     bin_min       = 5                   # Min. data count in each averaging bin
     bin_mode      = 'log'               # Swath bin spacing - log or linear
     kernel_mode   = 'Gaussian'          # Gaussian, tent, or uniform
-    kernel_width  = 2                   # Gaussian filter width (km) if kernel_mode is Gaussian
-    max_reg_width = 3                   # Max. distance from node to include (km)
-    init_mode     = 'uniform'               # initialization of walkers - uniform or gaussian
-    n_walkers     = 10                      # number of walkers in ensemble
-    n_step        = 10000                   # number of steps for each walker to take
+    kernel_width  = 2                   # Filter width (km) 
+    max_reg_width = 3                   # Max. along-fault distance from node to include (km)
+    
+    # Inversion
+    n_process     = 4                                     # Number of threads to use during parallelization
+    init_mode     = 'uniform'                             # initialization of walkers - uniform or gaussian
+    n_walkers     = 10                                    # number of walkers in ensemble
+    n_step        = 2000                                 # number of steps for each walker to take
     moves         = [(emcee.moves.DEMove(), 0.8),         # Choice of walker moves 
                      (emcee.moves.DESnookerMove(), 0.2)]  # emcee default is [emcee.moves.StretchMove(), 1.0]
+    parallel        = 'swaths'                            # 'swaths' to parallelize inversion over swaths, or 'none' to run in serial
 
-    # -------------------- 2D fault model --------------------    
-    # 1. Uniform prior (must be defined even if using a Gaussian prior!)
-    prior_mode      = 'uniform'     # Type of prior distribution to be used
-    # top_dir         = 'Filter_50km/0_Average'
-    top_dir         = 'Filter_50km/1_Unconstrained'
-    v_mode          = 'elliptical'  # elliptical, elliptical_shift, or elliptical_shift_vert
-    fault_dip       = None
-    parallel        = 'swaths'
-    v0_lim          = [0, 10e-3]    # slip rate bounds (m/yr; positive is right-lateral)
-    D_lim           = [0, 15e3]     # lockind depth bounds (m)
-    dip_lim         = [0, 180]      # dip bounds (deg)
-    priors_uniform  = {'v0':  v0_lim, 'D': D_lim , 'dip': dip_lim}
-    labels          = [r'$v_0$', 'D', r'$\theta$']
-    units           = ['mm/yr', 'km', 'deg']
-    scales          = [1e3, 1e-3, 1] # up- or down-scale units in plots
+    # For uniform prior (must be defined even if using a Gaussian prior!)
+    prior_mode      = 'uniform'                              # 'uniform' or 'Gaussian'
+    v_mode          = 'elliptical_shift'                     # elliptical, elliptical_shift, or elliptical_shift_vert
+    v0_lim          = [0, 10e-3]                             # m/yr (positive is right-lateral)
+    D_lim           = [0, 15e3]                              # m
+    dip_lim         = [0, 180]                               # deg
+    vc_lim          = [-2e-3, 2e-3]                          # m
+    labels          = [r'$v_0$', 'D', r'$\theta$', r'$v_c$'] # Parameter labels for plotting
+    units           = ['mm/yr', 'km', 'deg', 'mm/yr']        # Parameter units for plotting
+    scales          = [1e3, 1e-3, 1, 1e3]                    # Parameter scaling units for plotting
+    priors_uniform  = {'v0':  v0_lim, 'D': D_lim ,           # Dictionary containing prior bounds
+                       'dip': dip_lim, 'vc':  vc_lim}  
 
-    # # 2. Gaussian prior
-    # prior_mode = 'Gaussian' # Type of prior to be used
-    # top_dir    = 'Filter_50km/2_Constrained'
-    # v0_val     = [ 3.12e-3,   3*0.10e-3] # m/yr (positive is right-lateral)
-    # D_val      = [ 1.97e3,    3*0.13e3 ] # m
-    # dip_val    = [83.14,      3*2.10   ] # deg
-    # priors_gaussian = {'v0':  v0_val, 'D': D_val, 'dip': dip_val}
-
-    # # 3. Vertical fixed geometry
-    # prior_mode      = 'uniform' # Type of prior to be used
-    # top_dir         = 'Filter_50km/3_Vertical'
-    # v_mode          = 'fixed_dip'  
-    # fault_dip       = np.ones(44)*90
-    # parallel        = None
-    # v0_lim          = [0, 10e-3]    # m/yr (positive is right-lateral)
-    # D_lim           = [0, 15e3]     # m
-    # priors_uniform  = {'v0':  v0_lim, 'D': D_lim }
-    # labels          = [r'$v_0$', 'D']
-    # units           = ['mm/yr', 'km']
-    # scales          = [1e3, 1e-3]
-    
-    # -------------------- 2D fault model with shift --------------------    
-    # # Uniform prior (must be defined even if using a Gaussian prior!)
-    # v_mode        = 'elliptical_shift'  # elliptical, elliptical_shift, or elliptical_shift_vert
-    # v0_lim          = [0, 10e-3]    # m/yr (positive is right-lateral)
-    # D_lim           = [0, 15e3]     # m
-    # dip_lim         = [0, 180]      # deg
-    # vc_lim          = [-2e-3, 2e-3] # m
-    # priors_uniform  = {'v0':  v0_lim, 'D': D_lim , 'dip': dip_lim, 'vc':  vc_lim}
-    # labels          = [r'$v_0$', 'D', r'$\theta$', r'$v_c$']
-    # units           = ['mm/yr', 'km', 'deg', 'mm/yr']
-    # scales          = [1e3, 1e-3, 1, 1e3]
-
-    # # Gaussian prior
+    # # For Gaussian prior
     # # Using results from Run_001
     # v0_val    = [ 2.40e-3,   0.30e-3] # m/yr (positive is right-lateral)
     # D_val     = [ 3.30e3,    0.30e3 ] # m
@@ -146,43 +109,8 @@ def main():
     # units           = ['mm/yr', 'km', 'deg', 'mm/yr']
     # scales          = [1e3, 1e-3, 1, 1e3]
 
-    # # Fixed geometry with velocity shift
-    # priors_uniform  = {'v0':  v0_lim, 'D': D_lim , 'vc':  vc_lim}
-    # labels          = [r'$v_0$', 'D', r'$v_c$']
-    # units           = ['mm/yr', 'km', 'mm/yr']
-    # scales          = [1e3, 1e-3, 1e3]
-
-    # -------------------- Shallow and deep slip --------------------
-    # priors_uniform  = {'s_0':   [0,     10e-3], 
-    #                    'D_s':   [0,     10e3], 
-    #                    'dip_s': [0,       180], 
-    #                    's_pl':  [10e-3, 30e-3], 
-    #                    'D_d':   [10e3,   15e3], 
-    #                    'dip_d': [0,       180], 
-    #                   }
-
-    # labels = [r'$s_s$', r'$D_s$', r'$\theta_s$', r'$s_d$', r'$D_d$', r'$\theta_d$']
-    # units = ['mm/yr', 'km', 'deg', 'mm/yr', 'km', 'deg']
-    # scales = np.array([1e3, 1e-3, 1, 1e3, 1e-3, 1])
-
-    # With shift
-    # priors_uniform  = {'s_0':   [0,     10e-3], 
-    #                    'D_s':   [0,      5e3], 
-    #                    'dip_s': [0,       180], 
-    #                    's_pl':  [10e-3,     30e-3], 
-    #                    'D_d':   [10e3,   15e3], 
-    #                    'dip_d': [0,       180], 
-    #                    'v_ref': [-1,        1], 
-    #                   }
-
-    # labels = [r'$s_s$', r'$D_s$', r'$\theta_s$', r'$s_d$', r'$D_d$', r'$\theta_d$', r'$v_{ref}$']
-    # units = ['mm/yr', 'km', 'deg', 'mm/yr', 'km', 'deg', 'mm/yr']
-    # scales = np.array([1e3, 1e-3, 1, 1e3, 1e-3, 1, 1e3])
-
-    # Plotting parameters
-    vlim = 5
-    cmap = 'coolwarm'
-
+    # -------------------- Prepare things analysis -------------------- 
+    # Configure functions related to choice of prior
     if prior_mode == 'uniform':
         log_prob = log_prob_uniform
         priors   = priors_uniform
@@ -195,12 +123,11 @@ def main():
         print('Error! Must specify prior mode!')
         return
 
-    # Get plot ticks from parameter bounds/uniform distribution
+    # Generate plot ticks from parameter bounds/uniform distribution
     ticks = []
     for var, scale in zip(priors.keys(), scales):    
         ticks.append(np.round(np.array([np.min(priors[var]), np.mean(priors[var]), np.max(priors[var])]) * scale))
 
-    # -------------------- BEGIN ANALYSIS -------------------- 
     # Configure top-level parameters
     param_names  = ['file', 'swath_inc', 'param_inc', 'l', 'w', 'l_bin', 'bin_min', 'kernel_mode', 'kernel_width', 'max_reg_width', 'top_dir', 'v_mode', 'priors', 'init_mode', 'n_walkers', 'n_step', 'n_process', 'n_patch', 'std_max', 'moves']  
     param_values = [ file,   swath_inc,   param_inc,   l,   w,   l_bin,   bin_min,   kernel_mode,   kernel_width,   max_reg_width,   top_dir,   v_mode,   priors,   init_mode,   n_walkers,   n_step ,  n_process,   n_patch,   std_max,   moves ]  
@@ -217,7 +144,6 @@ def main():
 
     # Load InSAR dataset
     X, Y, Z, dims = read_grd(file, flatten=True)
-    # Z -= np.nanmean(Z)
 
     # Check mode
     if len(sys.argv) > 1:
@@ -292,7 +218,7 @@ def main():
 
     if kernel_mode == 'Gaussian':
         kernel = get_kernel(kernel_mode, max_reg_width, w=kernel_width)
-        h5f.create_dataset(f'Kernel/width', data=width)   
+        h5f.create_dataset(f'Kernel/width', data=kernel_width)   
     else:
         kernel = get_kernel(kernel_mode, max_reg_width)
 
@@ -348,19 +274,17 @@ def main():
         cbar_label = 'Weight'
         var        = np.diag(B)
         n_seg      = 5
-        # ticks      = np.linspace(var.min(), var.max(), n_seg + 1)
         alpha      = 1
 
         # Create colorbar
         cval  = (var - var.min())/(var.max() - var.min()) # Normalized color values
-        cmap  = colors.LinearSegmentedColormap.from_list(cmap_name, plt.get_cmap(cmap_name, 265)(np.linspace(0, 1, 265)), n_seg)
+        cmap  = matplotlib.colors.LinearSegmentedColormap.from_list(cmap_name, plt.get_cmap(cmap_name, 265)(np.linspace(0, 1, 265)), n_seg)
         sm    = plt.cm.ScalarMappable(cmap=cmap, norm=plt.Normalize(vmin=var.min(), vmax=var.max()))
         
         for j in range(len(x_loc)):
             ax.errorbar(x_loc[j]/1000, d_avg[j], d_std[j], marker='.', c=cmap(cval[j]), alpha=0.2, zorder=2)
 
         fig.savefig(f'{out_dir}/profiles/downsampled/{key}.png', dpi=500)
-        # plt.close()
 
         # Define inputs for inversion
         x     = x_loc
@@ -401,12 +325,12 @@ def main():
 
     h5f.close()
 
+    # Exit if in preview mode
     if mode == 'preview':
         print('Preview finished.')
         return
 
-
-    # (B) ---------- Stochastic inversion ----------
+    # ------------------ Stochastic inversion ------------------
     print()
     print('Priors:')
     for i, prior in enumerate(priors):
@@ -456,22 +380,17 @@ def main():
                  'UTMx':      f_nodes['UTMx'],      'UTMy':     f_nodes['UTMy'],        
                  'Strike':    f_nodes['Strike'],    'dist':     f_nodes['dist'],}
 
-    # dict1 = {'v0_avg':  m_avg[:, 0],  'v0_std': m_std[:, 0],  'v0_q1': m_q1[:, 0],  'v0_q2': m_q2[:, 0],  'v0_q3': m_q3[:, 0], 
-    #          'D_avg':   m_avg[:, 1],   'D_std': m_std[:, 1],   'D_q1': m_q1[:, 1],   'D_q2': m_q2[:, 1],   'D_q3': m_q3[:, 1], 
-    #          'dip_avg': m_avg[:, 2], 'dip_std': m_std[:, 2], 'dip_q1': m_q1[:, 2], 'dip_q2': m_q2[:, 2], 'dip_q3': m_q3[:, 2],}
+    suffixes = ['_avg', '_std', '_q1', '_q2', '_q3']
 
     # Get statistics for each parameter included in prior distribution
     for i, var in enumerate(priors.keys()):
-        keys = [var + key for key in keys] 
+        # keys = [var + key for key in keys] 
+        keys = [var + key for key in suffixes] 
         vals = m_avg[:, i], m_std[:, i], m_q1[:, i], m_q2[:, i], m_q3[:, i]
         summ_dict.update(dict(zip(keys, vals)))
 
     # Include RMS for models using parameter expected values
     summ_dict.update({'RMS_avg': m_rms_avg, 'RMS_q2': m_rms_q2})
-
-    # if len(priors) == 4:
-        # summ_dict.update({'vc_avg': m_avg[:, 3], 'vc_std': m_std[:, 3], 'vc_q1': m_q1[:, 3], 'vc_q2': m_q2[:, 3], 'vc_q3': m_q3[:, 3],})
-
     summary = pd.DataFrame(summ_dict, index=m_key)
 
     # Save dataframe as text file
@@ -616,7 +535,7 @@ def get_swath(lon, lat, z, node, strike, **kwargs):
     lon_r, lat_r = rotate(lon_m, lat_m, a)
 
     # calculate distances
-    dl = ((lon_r - node_r[0])**2)*µ*0.5
+    dl = ((lon_r - node_r[0])**2)**0.5
     dw = ((lat_r - node_r[1])**2)**0.5
 
     # Prepare outputs
@@ -1444,7 +1363,7 @@ def plot_profile(X, Y, Z, D, l, w, node, key, avg, S_inv, B, **kwargs):
     # ticks    = 
     cmap     = plt.get_cmap(cmap_name)
     crange   = np.sort(np.linspace(0, vmax - vmin, n_seg)/abs(vmax - vmin))
-    cmap_lin = colors.LinearSegmentedColormap.from_list(cmap_name, cmap(crange), n_seg)
+    cmap_lin = matplotlib.colors.LinearSegmentedColormap.from_list(cmap_name, cmap(crange), n_seg)
     sm       = plt.cm.ScalarMappable(cmap=cmap_lin, norm=plt.Normalize(vmin=vmin, vmax=vmax))
     sm._A    = []
 
@@ -1550,7 +1469,7 @@ def plot_overview(x, y, z, fault, **kwargs):
         ticks    = np.linspace(vmin, vmax, n_ticks)
         cmap     = plt.get_cmap(cmap_name)
         crange   = np.sort(np.linspace(0, vmax - vmin, n_seg)/abs(vmax - vmin))
-        cmap_lin = colors.LinearSegmentedColormap.from_list(cmap_name, cmap(crange), n_seg)
+        cmap_lin = matplotlib.colors.LinearSegmentedColormap.from_list(cmap_name, cmap(crange), n_seg)
         sm       = plt.cm.ScalarMappable(cmap=cmap_lin, norm=plt.Normalize(vmin=vmin, vmax=vmax))
         sm._A    = []
         
