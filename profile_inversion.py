@@ -6,6 +6,7 @@ import shutil
 import matplotlib
 import subprocess
 import numpy as np
+import xarray as xr
 import pandas as pd
 import matplotlib.pyplot as plt
 from scipy.optimize import least_squares
@@ -13,7 +14,7 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 from scipy.interpolate import interp1d
 from multiprocessing import Pool
 from sys import platform
-from grid_utilities import read_grd
+# from grid_utilities import read_grd
 from map_utilities import proj_ll2utm, add_utm_coords, add_ll_coords
 
 # You may need to install these packages
@@ -436,6 +437,33 @@ def read_fault(fault_file):
 
     return fault
 
+
+def read_grd(file, flatten=False):
+    """
+    Read NetCDF grid file (x, y, z) to Numpy arrays.
+    Specify flatten=True to get flattened arrays and original grid dimensions
+    """
+    with xr.open_dataset(file) as grd:
+        try:
+            x = grd.lon.values
+            y = grd.lat.values
+            z = grd.z.values
+        except AttributeError:
+            x = grd.x.values
+            y = grd.y.values
+            z = grd.z.values
+
+    if flatten:
+        dims = z.shape
+        X, Y = np.meshgrid(x, y)
+        X = X.flatten()
+        Y = Y.flatten()
+        Z = z.flatten()
+
+        return X, Y, Z, dims
+
+    else: 
+        return x, y, z
 
 #  ---------- UTILITIES ---------- 
 def get_nodes(fault):
