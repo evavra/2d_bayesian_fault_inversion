@@ -5,7 +5,7 @@ Hello! This code is for inverting geodetic data for simple 2D fault models based
 
 The default model is composed of $N$ finite screw dislocations with a prescribed depth-tapering consistent with a constant stress drop (Fialko, 2007). 
 
-[alt text](https://github.com/[username]/[reponame]/blob/[branch]/image.jpg?raw=true)
+[alt text](https://github.com/evavra]/2d_bayesian_fault_inversion//fault_diagram.png?raw=true)
 
 ## Usage
 ```
