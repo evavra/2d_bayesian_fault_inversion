@@ -15,4 +15,6 @@ Several packages you may need to install are:
 # References
 Foreman-Mackey, D., Hogg, D. W., Lang, D., & Goodman, J. (2013). EMCEE: The MCMC hammer. Publications of the Astronomical Society of the Pacific, 125(925), 306–312. [https://doi.org/10.1086/670067](https://doi.org/10.1086/670067)
 
+Goodman, J., & Weare, J. (2010). Ensemble samplers with affine invariance. Communications in Applied Mathematics and Computational Science, 5(1), 65–80. [https://doi.org/10.2140/camcos.2010.5.65](https://doi.org/10.2140/camcos.2010.5.65)
+
 Vavra, E. J., Qiu, H., Chi, B., Share, P.-E., Allam, A., Morzfeld, M., et al. (2023). Active dipping interface of the Southern San Andreas fault revealed by space geodetic and seismic imaging. Journal of Geophysical Research: Solid Earth, 128, e2023JB026811. [https://doi.org/10.1029/2023JB026811](https://agupubs.onlinelibrary.wiley.com/doi/10.1029/2023JB026811)
