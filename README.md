@@ -1,19 +1,21 @@
 # 2d_bayesian_fault_inversion
 
 ## Description
-Hello! This code is for inverting geodetic data for simple 2D fault models based on elastic dislocations (Segall, 2010). It was originally used to investigate the shallow geometry of the southern San Andreas fault using measurements of fault creep and slow-slip (Vavra et al., 2023)
+Hello! This code is for inverting geodetic data for simple 2D fault models based on elastic dislocations (Segall, 2010). It was originally used to investigate the shallow geometry of the southern San Andreas fault using InSAR measurements of fault creep and slow-slip (Vavra et al., 2023).
 
-The default model is composed of $N$ finite screw dislocations with a prescribed depth-tapering consistent with a constant stress drop (Fialko, 2007). The model parameters are the the slip (rate) at the surface, maximum depth of slip, fault dip angle, and a uniform displacement/velocity shift to account for long-wavelength errors. A schematic diagram of the 
+### Fault model
+The "de-fault" model consists of $L$ finite screw dislocations to approximate an elliptical slip distribution, which is consistent with a constant stress drop (Fialko, 2007). The model parameters are the the slip rate $s_0$ (or displacement) at the surface, maximum depth of slip $d_L$ (i.e. "locking depth"), fault dip angle $\theta$, and a uniform velocity (or displacment) shift $v_c$ which is added to the model prediction to account for long-wavelength errors.
 
-![image text](https://gist.github.com/assets/43979321/8b5717b5-623e-4f5f-983f-a5c2d477edd5)
+![alt text](https://github.com/evavra/2d_bayesian_fault_inversion/blob/main/fault_diagram.png "Scematic fault diagram")
 
+### Inversion procedure
+The code will automatically select profiles from the data based on the fault trace provided in `fault_file` at an increment specified by `swath_inc`. Fault parameters will be estimated at `param_inc` intervals; this can be the same or larger than `swath_inc`. For each individual inversion, all profiles within some distance (`max_reg_width`) of the specified fault node will be inverted simultaneously (if you only wish to invert single profiles, set `max_reg_width = 0`). Each sub-profile will be down-sampled and weighted prior to the inversion. 
 
-## Usage
-```
-    python profile_inversion.py                 - perform entire inversion      
-    python profile_inversion.py reload          - remake all plots from most recent run
-    python profile_inversion.py summary out_dir - remake summary plots for specified run
-```
+### Bayesian inversion
+The inversion utilizes a Bayesian (or stocahstic) framework to obtain an ensemble of plausible models and allow for uncertainty quantification of the model parameter estimates. It employs an Markov Chain Monte Carlo (MCMC) sampling algorithm (the `emcee` implementation of the MCMC Hammer) to explore the model parameter space in an efficient manner.
+
+Full details of the 2D fault model and inversion prodedure are available in Vavra et al. (2023).
+Additional information on the mathematical theory and practical implementation behind the specific MCMC algorithm used is available from Goodman and Weare (2010) and Foreman-Mackey et al. (2013).
 
 ## Requirements and Installation
 In addition to default Python libraries, this code also uses [`matplotlib`](https://matplotlib.org/), [`numpy`](https://numpy.org/), [`pandas`](https://pandas.pydata.org/), [`scipy`](https://scipy.org/) (users familiar with Python will likely already have these installed). 
@@ -21,12 +23,21 @@ In addition to default Python libraries, this code also uses [`matplotlib`](http
 Several other packages you may need to install are:
 - [`xarray`](https://docs.xarray.dev/en/stable/): reading NETCDF data files
 - [`hyp5`](https://docs.h5py.org/en/stable/): reading/writing HDF5 output files
-- [`emcee`](https://emcee.readthedocs.io/en/stable/): performing Markov Chain Monte Carlo (MCMC) sampling
+- [`emcee`](https://emcee.readthedocs.io/en/stable/): performing MCMC sampling
 - [`numba`](https://numba.pydata.org/): accelerating some basic numerical calculations (i.e. fault model predictions)
 - [`corner`](https://corner.readthedocs.io/en/latest/): plotting MCMC sampling results
 - [`pyproj`](https://pypi.org/project/pyproj/): handling geographic coordinate systems
 
 I would recommend using [Conda](https://conda.io/projects/conda/en/latest/index.html) to create a new Python environment to install and manage these packages. 
+
+## Usage
+There are four modes which can be used 
+```
+    python profile_inversion.py                 - perform entire inversion      
+    python profile_inversion.py preview         - select and plot profiles only. 
+    python profile_inversion.py reload          - remake all plots from most recent run
+    python profile_inversion.py summary out_dir - remake summary plots for specified run
+```
 
 # References
 Fialko, Y. (2007). Fracture and frictional mechanics - Theory. In G. Schubert (Ed.), Treatise on geophysics (Vol. 4, pp. 83–106). Elsevier Ltd.
