@@ -6,7 +6,6 @@ import shutil
 import matplotlib
 import subprocess
 import numpy as np
-import xarray as xr
 import pandas as pd
 import matplotlib.pyplot as plt
 from scipy.optimize import least_squares
@@ -14,14 +13,13 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 from scipy.interpolate import interp1d
 from multiprocessing import Pool
 from sys import platform
-# from grid_utilities import read_grd
-# from map_utilities import proj_ll2utm, add_utm_coords, add_ll_coords
 
 # You may need to install these packages
 import h5py
 import emcee
 import numba
 import corner
+import xarray as xr
 from pyproj import CRS, Proj
 
 # A few global parameters
@@ -78,33 +76,33 @@ def main():
     n_process     = 4                                     # Number of threads to use during parallelization
     init_mode     = 'uniform'                             # initialization of walkers - uniform or gaussian
     n_walkers     = 10                                    # number of walkers in ensemble
-    n_step        = 2000                                 # number of steps for each walker to take
+    n_step        = 10000                                 # number of steps for each walker to take
     moves         = [(emcee.moves.DEMove(), 0.8),         # Choice of walker moves 
                      (emcee.moves.DESnookerMove(), 0.2)]  # emcee default is [emcee.moves.StretchMove(), 1.0]
-    parallel        = 'swaths'                            # 'swaths' to parallelize inversion over swaths, or 'none' to run in serial
+    parallel      = 'swaths'                              # 'swaths' to parallelize inversion over swaths, or 'none' to run in serial
 
     # For uniform prior (must be defined even if using a Gaussian prior!)
     prior_mode      = 'uniform'                              # 'uniform' or 'Gaussian'
     v_mode          = 'elliptical_shift'                     # elliptical, elliptical_shift, or elliptical_shift_vert
-    v0_lim          = [0, 10e-3]                             # m/yr (positive is right-lateral)
+    s0_lim          = [0, 10e-3]                             # m/yr (positive is right-lateral)
     D_lim           = [0, 15e3]                              # m
     dip_lim         = [0, 180]                               # deg
     vc_lim          = [-2e-3, 2e-3]                          # m
     labels          = [r'$v_0$', 'D', r'$\theta$', r'$v_c$'] # Parameter labels for plotting
     units           = ['mm/yr', 'km', 'deg', 'mm/yr']        # Parameter units for plotting
     scales          = [1e3, 1e-3, 1, 1e3]                    # Parameter scaling units for plotting
-    priors_uniform  = {'v0':  v0_lim, 'D': D_lim ,           # Dictionary containing prior bounds
+    priors_uniform  = {'s0':  s0_lim, 'D': D_lim ,           # Dictionary containing prior bounds
                        'dip': dip_lim, 'vc':  vc_lim}  
 
     # # For Gaussian prior
     # # Using results from Run_001
-    # v0_val    = [ 2.40e-3,   0.30e-3] # m/yr (positive is right-lateral)
+    # s0_val    = [ 2.40e-3,   0.30e-3] # m/yr (positive is right-lateral)
     # D_val     = [ 3.30e3,    0.30e3 ] # m
     # dip_val   = [62.13,      4.03   ] # deg
     # vc_val    = [ 0.66e-3,   0.05e-3] # m
 
     # Include dip as free parameter
-    # priors_gaussian = {'v0':  v0_val, 'D': D_val , 'dip': dip_val, 'vc':  vc_val}
+    # priors_gaussian = {'s0':  s0_val, 'D': D_val , 'dip': dip_val, 'vc':  vc_val}
     # labels          = [r'$v_0$', 'D', r'$\theta$', r'$v_c$']
     # units           = ['mm/yr', 'km', 'deg', 'mm/yr']
     # scales          = [1e3, 1e-3, 1, 1e3]
@@ -558,7 +556,7 @@ def add_ll_coords(df, crs_epsg):
     
     return df.assign(Longitude=Longitude, Latitude=Latitude) 
 
-    
+
 def get_nodes(fault):
     """
     Given verticies of fault trace, extract nodes for profile inversions.
@@ -726,7 +724,7 @@ def choose_velocity(v_mode, priors, **kwargs):
     """
 
     if v_mode == 'shallow':
-        if 'v0' in priors.keys() and 'v0' in priors.keys() and 'dip' in priors.keys():
+        if 's0' in priors.keys() and 's0' in priors.keys() and 'dip' in priors.keys():
             global velocity
             if len(priors) == 3:
                 velocity = v_shallow
@@ -1202,7 +1200,7 @@ def cost_function(m, x, d, S_inv, B, velocity):
     log[p(d|m)] - log likelihood of d given m 
     """
     # Parse parameters
-    # v0, D, dip = m
+    # s0, D, dip = m
 
     # Make forward model calculation
     G_m = velocity(m, x)
@@ -1905,7 +1903,7 @@ def v_shallow(m, x):
 
     INPUT:
         m is a vector (3,) containing:
-            v0  - slip rate on fault (m/yr)
+            s0  - slip rate on fault (m/yr)
             D   - locking depth (m)
             dip - dip of fault (right-hand rule relative to fault trace) (deg)
         x  - fault-perpendicular distance of observation point (m)
@@ -1926,7 +1924,7 @@ def v_shallow_shift(m, x):
     INPUT:
     INPUT:
         m is a vector (3,) containing:
-            v0   - slip rate on fault (m/yr)
+            s0   - slip rate on fault (m/yr)
             D    - locking depth (m)
             dip  - dip of fault (right-hand rule relative to fault trace) (deg)
             vs   - uniform velocity shift
@@ -1947,7 +1945,7 @@ def v_deep(m, x):
 
     INPUT:
         m is a vector (3,) containing:
-            v0  - slip rate on fault (m/yr)
+            s0  - slip rate on fault (m/yr)
             D   - locking depth (m)
             dip - dip of fault (right-hand rule relative to fault trace) (deg)
         x  - fault-perpendicular distance of observation point (m)
@@ -1962,14 +1960,14 @@ def v_deep(m, x):
 @numba.jit(nopython=True)
 def v_elliptical(m, x):
 
-    v0, D, dip = m
+    s0, D, dip = m
     dip_r = dip * np.pi/180
 
     # Get edges of patches
     d = D * patch_edges
     
     # Determine slip distribution
-    s = np.array([v0 * (1 - (d[i]/D)**2)**0.5 for i in range(n_patch + 1)])
+    s = np.array([s0 * (1 - (d[i]/D)**2)**0.5 for i in range(n_patch + 1)])
 
     # Compute velocities
     v = np.empty((n_patch, len(x)))
@@ -1987,14 +1985,14 @@ def v_elliptical(m, x):
 @numba.jit(nopython=True)
 def v_elliptical_shift(m, x):
 
-    v0, D, dip, vc = m
+    s0, D, dip, vc = m
     dip_r = dip * np.pi/180
 
     # Get edges of patches
     d = np.linspace(0, D, n_patch + 1)
     
     # Determine slip distribution
-    s = np.array([v0 * (1 - (d[i]/D)**2)**0.5 for i in range(n_patch + 1)])
+    s = np.array([s0 * (1 - (d[i]/D)**2)**0.5 for i in range(n_patch + 1)])
 
     # Compute velocities
     v = np.empty((n_patch, len(x)))
@@ -2017,13 +2015,13 @@ def v_elliptical_shift_vert(m, x):
     Verfical fault with ellipical slip distribution and jitter shift.
     """
 
-    v0, D, vc = m
+    s0, D, vc = m
 
     # Get edges of patches
     d = np.linspace(0, D, n_patch + 1)
     
     # Determine slip distribution
-    s = np.array([v0 * (1 - (d[i]/D)**2)**0.5 for i in range(n_patch + 1)])
+    s = np.array([s0 * (1 - (d[i]/D)**2)**0.5 for i in range(n_patch + 1)])
 
     # Compute velocities
     v = np.empty((n_patch, len(x)))
@@ -2041,14 +2039,14 @@ def v_elliptical_shift_vert(m, x):
 @numba.jit(nopython=True)
 def v_fixed_dip(m, x, dip):
 
-    v0, D = m
+    s0, D = m
     dip_r = dip * np.pi/180
 
     # Get edges of patches
     d = np.linspace(0, D, n_patch + 1)
     
     # Determine slip distribution
-    s = np.array([v0 * (1 - (d[i]/D)**2)**0.5 for i in range(n_patch + 1)])
+    s = np.array([s0 * (1 - (d[i]/D)**2)**0.5 for i in range(n_patch + 1)])
 
     # Compute velocities
     v = np.empty((n_patch, len(x)))
@@ -2069,14 +2067,14 @@ def v_fixed_dip(m, x, dip):
 @numba.jit(nopython=True)
 def v_fixed_dip_shift(m, x, dip):
 
-    v0, D, vc = m
+    s0, D, vc = m
     dip_r = dip * np.pi/180
 
     # Get edges of patches
     d = np.linspace(0, D, n_patch + 1)
     
     # Determine slip distribution
-    s = np.array([v0 * (1 - (d[i]/D)**2)**0.5 for i in range(n_patch + 1)])
+    s = np.array([s0 * (1 - (d[i]/D)**2)**0.5 for i in range(n_patch + 1)])
 
     # Compute velocities
     v = np.empty((n_patch, len(x)))
