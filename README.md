@@ -3,6 +3,13 @@
 ## Description
 Python code for inverting geodetic data for 2D fault models. 
 
+```
+Usages:
+    python profile_inversion.py                 - perform entire inversion      
+    python profile_inversion.py reload          - remake all plots from most recent run
+    python profile_inversion.py summary out_dir - remake summary plots for specified run
+```
+
 ## Requirements and Installation
 In addition to default Python libraries, this code also uses [`matplotlib`](https://matplotlib.org/), [`numpy`](https://numpy.org/), [`pandas`](https://pandas.pydata.org/), [`scipy`](https://scipy.org/) (users familiar with Python will likely already have these installed). 
 
