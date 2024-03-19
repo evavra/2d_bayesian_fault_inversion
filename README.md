@@ -3,10 +3,10 @@
 ## Description
 Python code for inverting geodetic data for 2D fault models. 
 
-## Requirements
-In addition to default Python libraries, this code also uses [`matplotlib`](https://matplotlib.org/), [`numpy`](https://numpy.org/), [`pandas`](https://pandas.pydata.org/), [`scipy`](https://scipy.org/) (users familiar with Python will likely already have these installed).
+## Requirements and Installation
+In addition to default Python libraries, this code also uses [`matplotlib`](https://matplotlib.org/), [`numpy`](https://numpy.org/), [`pandas`](https://pandas.pydata.org/), [`scipy`](https://scipy.org/) (users familiar with Python will likely already have these installed). 
 
-Several packages you may need to install are:
+Several other packages you may need to install are:
 - [`xarray`](https://docs.xarray.dev/en/stable/): reading NETCDF data files
 - [`hyp5`](https://docs.h5py.org/en/stable/): reading/writing HDF5 output files
 - [`emcee`](https://emcee.readthedocs.io/en/stable/): performing Markov Chain Monte Carlo (MCMC) sampling
@@ -14,6 +14,7 @@ Several packages you may need to install are:
 - [`corner`](https://corner.readthedocs.io/en/latest/): plotting MCMC sampling results
 - [`pyproj`](https://pypi.org/project/pyproj/): handling geographic coordinate systems
 
+I would recommend using [Conda](https://conda.io/projects/conda/en/latest/index.html) to create a new Python environment to install and manage these packages. 
 
 # References
 Foreman-Mackey, D., Hogg, D. W., Lang, D., & Goodman, J. (2013). EMCEE: The MCMC hammer. Publications of the Astronomical Society of the Pacific, 125(925), 306–312. [https://doi.org/10.1086/670067](https://doi.org/10.1086/670067)
