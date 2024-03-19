@@ -45,14 +45,14 @@ def main():
         python profile_inversion.py summary out_dir - remake summary plots for specified run
     """
 
-    # -------------------- Define parameters --------------------
+    # -------------------- Parameters --------------------
     # File paths
     file       = 'test_data_SSAF.grd'  # Path to NetCDF data file
     fault_file = 'test_fault_SSAF.txt' # Path to fault trace
     top_dir    = 'test'                # Path to output directory
 
     # Plotting 
-    vlim = 5          # Min./max. value for velocity profile plots
+    vlim = 5          # Min./max. value for velocity profile plots (mm)
     cmap = 'coolwarm' # Colormap for velocity profile plots
 
     # Data 
@@ -85,24 +85,24 @@ def main():
     prior_mode      = 'uniform'                              # 'uniform' or 'Gaussian'
     v_mode          = 'elliptical_shift'                     # elliptical, elliptical_shift, or elliptical_shift_vert
     s0_lim          = [0, 10e-3]                             # m/yr (positive is right-lateral)
-    D_lim           = [0, 15e3]                              # m
+    dL_lim          = [0, 15e3]                              # m
     dip_lim         = [0, 180]                               # deg
     vc_lim          = [-2e-3, 2e-3]                          # m
     labels          = [r'$v_0$', 'D', r'$\theta$', r'$v_c$'] # Parameter labels for plotting
     units           = ['mm/yr', 'km', 'deg', 'mm/yr']        # Parameter units for plotting
     scales          = [1e3, 1e-3, 1, 1e3]                    # Parameter scaling units for plotting
-    priors_uniform  = {'s0':  s0_lim, 'D': D_lim ,           # Dictionary containing prior bounds
+    priors_uniform  = {'s0':  s0_lim, 'D': dL_lim ,           # Dictionary containing prior bounds
                        'dip': dip_lim, 'vc':  vc_lim}  
 
     # # For Gaussian prior
     # # Using results from Run_001
     # s0_val    = [ 2.40e-3,   0.30e-3] # m/yr (positive is right-lateral)
-    # D_val     = [ 3.30e3,    0.30e3 ] # m
+    # dL_val     = [ 3.30e3,    0.30e3 ] # m
     # dip_val   = [62.13,      4.03   ] # deg
     # vc_val    = [ 0.66e-3,   0.05e-3] # m
 
     # Include dip as free parameter
-    # priors_gaussian = {'s0':  s0_val, 'D': D_val , 'dip': dip_val, 'vc':  vc_val}
+    # priors_gaussian = {'s0':  s0_val, 'D': dL_val , 'dip': dip_val, 'vc':  vc_val}
     # labels          = [r'$v_0$', 'D', r'$\theta$', r'$v_c$']
     # units           = ['mm/yr', 'km', 'deg', 'mm/yr']
     # scales          = [1e3, 1e-3, 1, 1e3]
@@ -2097,15 +2097,15 @@ def v_combined(m, x):
     """
     Model for velocity profile due to both shallow and deep slip.
     """
-    s_0, D_0, dip_0, s_d, D_d, dip_d = m
+    s_0, dL_0, dip_0, s_d, dL_d, dip_d = m
     dip_0_r = dip_0 * np.pi/180
     dip_d_r = dip_d * np.pi/180
 
     # Get edges of patches
-    d = D_0 * patch_edges
+    d = dL_0 * patch_edges
     
     # Determine slip distribution
-    s = np.array([s_0 * (1 - (d[i]/D_0)**2)**0.5 for i in range(n_patch + 1)])
+    s = np.array([s_0 * (1 - (d[i]/dL_0)**2)**0.5 for i in range(n_patch + 1)])
 
     # Compute velocities
     v = np.empty((n_patch, len(x)))
@@ -2118,7 +2118,7 @@ def v_combined(m, x):
         v[i, :] = -(s[i]/np.pi) * (np.arctan((x - d[i + 1]/np.tan(dip_0_r))/d[i + 1]) - np.arctan((x - d[i]/np.tan(dip_0_r))/d[i]))
     
     # Sum shallow and deep dislocations
-    return -np.sum(v, axis=0) - (s_d/np.pi) * (np.arctan((x - D_d/np.tan(dip_d_r))/D_d))
+    return -np.sum(v, axis=0) - (s_d/np.pi) * (np.arctan((x - dL_d/np.tan(dip_d_r))/dL_d))
 
 
 @numba.jit(nopython=True)
@@ -2126,15 +2126,15 @@ def v_combined_shift(m, x):
     """
     Model for velocity profile due to both shallow and deep slip with reference velocity shift included.
     """
-    s_0, D_0, dip_0, s_d, D_d, dip_d, v_ref = m
+    s_0, dL_0, dip_0, s_d, dL_d, dip_d, v_ref = m
     dip_0_r = dip_0 * np.pi/180
     dip_d_r = dip_d * np.pi/180
 
     # Get edges of patches
-    d = D_0 * patch_edges
+    d = dL_0 * patch_edges
     
     # Determine slip distribution
-    s = np.array([s_0 * (1 - (d[i]/D_0)**2)**0.5 for i in range(n_patch + 1)])
+    s = np.array([s_0 * (1 - (d[i]/dL_0)**2)**0.5 for i in range(n_patch + 1)])
 
     # Compute velocities
     v = np.empty((n_patch, len(x)))
@@ -2147,7 +2147,7 @@ def v_combined_shift(m, x):
         v[i, :] = -(s[i]/np.pi) * (np.arctan((x - d[i + 1]/np.tan(dip_0_r))/d[i + 1]) - np.arctan((x - d[i]/np.tan(dip_0_r))/d[i]))
     
     # Sum shallow and deep dislocations
-    return -np.sum(v, axis=0) - (s_d/np.pi) * (np.arctan((x - D_d/np.tan(dip_d_r))/D_d)) + v_ref
+    return -np.sum(v, axis=0) - (s_d/np.pi) * (np.arctan((x - dL_d/np.tan(dip_d_r))/dL_d)) + v_ref
 
 
 @numba.jit(nopython=True)
