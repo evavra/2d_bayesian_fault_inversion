@@ -5,7 +5,7 @@ Hello! This code is for inverting geodetic data for simple 2D fault models based
 
 The default model is composed of $N$ finite screw dislocations with a prescribed depth-tapering consistent with a constant stress drop (Fialko, 2007). The model parameters are the the slip (rate) at the surface, maximum depth of slip, fault dip angle, and a uniform displacement/velocity shift to account for long-wavelength errors. A schematic diagram of the 
 
-![image text](https://gist.github.com/assets/43979321/8b5717b5-623e-4f5f-983f-a5c2d477edd5)
+``![image text](https://gist.github.com/assets/43979321/8b5717b5-623e-4f5f-983f-a5c2d477edd5)``
 
 
 ## Usage
