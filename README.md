@@ -3,9 +3,10 @@
 ## Description
 Hello! This code is for inverting geodetic data for simple 2D fault models based on elastic dislocations (Segall, 2010). It was originally used to investigate the shallow geometry of the southern San Andreas fault using measurements of fault creep and slow-slip (Vavra et al., 2023)
 
-The default model is composed of $N$ finite screw dislocations with a prescribed depth-tapering consistent with a constant stress drop (Fialko, 2007). 
+The default model is composed of $N$ finite screw dislocations with a prescribed depth-tapering consistent with a constant stress drop (Fialko, 2007). The model parameters are the the slip (rate) at the surface, maximum depth of slip, fault dip angle, and a uniform displacement/velocity shift to account for long-wavelength errors. A schematic diagram of the 
 
-[alt text](https://github.com/evavra]/2d_bayesian_fault_inversion//fault_diagram.png?raw=true)
+![image text](https://gist.github.com/evavra/fdc6de97763cb398d99a952c9fbbf964)
+
 
 ## Usage
 ```
