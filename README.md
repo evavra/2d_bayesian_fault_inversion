@@ -1,15 +1,17 @@
 # 2d_bayesian_fault_inversion
 
 ## Description
-Hello! This code is for inverting geodetic data for simple 2D fault models based on elastic dislocations (Segall, 2010). It was originally used to investigate the shallow geometry of the southern San Andreas fault using InSAR measurements of fault creep and slow-slip (Vavra et al., 2023).
+Hello! This code is for inverting geodetic data for simple 2D fault models based on elastic dislocations (Segall, 2010). It was originally used to investigate the shallow geometry of the southern San Andreas fault using InSAR measurements of fault creep and slow-slip (Vavra et al., 2023). This page is still a work-in-progress so please don't hesitate to reach out with any questions!
 
 ### Fault model
 The "de-fault" model consists of $L$ finite screw dislocations to approximate an elliptical slip distribution, which is consistent with a constant stress drop (Fialko, 2007). The model parameters are the the slip rate $s_0$ (or displacement) at the surface, maximum depth of slip $d_L$ (i.e. "locking depth"), fault dip angle $\theta$, and a uniform velocity (or displacment) shift $v_c$ which is added to the model prediction to account for long-wavelength errors.
 
 ![alt text](https://github.com/evavra/2d_bayesian_fault_inversion/blob/main/fault_diagram.png "Scematic fault diagram")
 
+Several alternative models already exist in the code (descriptions to come). It is also relatively straightforward to add your own model by simply plugging-in a new method and changing the input parameters for the prior distribution.
+
 ### Inversion procedure
-The code will automatically select profiles from the data based on the fault trace provided in `fault_file` at an increment specified by `swath_inc`. Fault parameters will be estimated at `param_inc` intervals; this can be the same or larger than `swath_inc`. For each individual inversion, all profiles within some distance (`max_reg_width`) of the specified fault node will be inverted simultaneously (if you only wish to invert single profiles, set `max_reg_width = 0`). Each sub-profile will be down-sampled and weighted prior to the inversion. 
+The code will automatically select profiles from the data based on the fault trace provided in `fault_file` at an increment specified by `swath_inc`. Fault parameters will be estimated at `param_inc` intervals; this can be the same or larger than `swath_inc`. For each individual inversion, all profiles within some distance (`max_reg_width`) of the specified fault node will be inverted simultaneously (if you only wish to invert single profiles, set `max_reg_width = 0`). Each sub-profile will be down-sampled and weighted prior to the inversion. The aforementioned parameters, as well as others, can be adjusted for individual needs in the `main()` method of `profile_inversion.py`.
 
 ### Bayesian inversion
 The inversion utilizes a Bayesian (or stocahstic) framework to obtain an ensemble of plausible models and allow for uncertainty quantification of the model parameter estimates. It employs an Markov Chain Monte Carlo (MCMC) sampling algorithm (the `emcee` implementation of the MCMC Hammer) to explore the model parameter space in an efficient manner.
@@ -31,7 +33,7 @@ Several other packages you may need to install are:
 I would recommend using [Conda](https://conda.io/projects/conda/en/latest/index.html) to create a new Python environment to install and manage these packages. 
 
 ## Usage
-There are four modes which can be used 
+There are four modes which can be used:
 ```
     python profile_inversion.py                 - perform entire inversion      
     python profile_inversion.py preview         - select and plot profiles only. 
