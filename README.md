@@ -3,6 +3,9 @@
 ## Description
 Python code for inverting geodetic data for 2D fault models. 
 
+## Requirements
+In addition to default Python libraries, this code also uses [`matplotlib`](https://matplotlib.org/), [`numpy`](https://numpy.org/), [`pandas`](https://pandas.pydata.org/), [`scipy`](https://scipy.org/) (users familiar with Python will likely already have these installed).
+
 Several packages you may need to install are:
 - [`xarray`](https://docs.xarray.dev/en/stable/): reading NETCDF data files
 - [`hyp5`](https://docs.h5py.org/en/stable/): reading/writing HDF5 output files
